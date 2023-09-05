@@ -1,0 +1,15 @@
+____output
+climbing
+datatest
+img_breaking
+img_climbing
+img_lockpicking
+lockpicking
+runs
+smthgelse
+Unknown_Human_Pose
+pose_cls_v1.h5
+pose_cls_v2.h5
+annotated_video.mp4
+yolov8s-pose.pt
+yolov8x-pose-p6.pt
