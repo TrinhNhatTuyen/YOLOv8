@@ -15,8 +15,8 @@ url = 'rtsp://admin:NuQuynhAnh@cam14423linhdong.smartddns.tv:1554/cam/realmonito
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 6
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 7
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 8
-# url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:443/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 8
-
+url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80/cam/realmonitor?channel=1&subtype=0&unicast=true'           # Cam 8
+# url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80'
 
 fresh = object()
 fresh = FreshestFrame(cv2.VideoCapture(url))
