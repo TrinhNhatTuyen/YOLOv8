@@ -29,7 +29,7 @@ def inside_the_box(point_test, points, img_w=1920, img_h=1080):
             return False        
     return True
 
-def draw_rectangle_on_image(image_path, points, output_path=None, scale=1.0):
+def draw_box_on_image(image_path, points, output_path=None, scale=1.0):
     # Đọc ảnh từ đường dẫn
     image = cv2.imread(image_path)
 
@@ -66,7 +66,14 @@ def draw_rectangle_on_image(image_path, points, output_path=None, scale=1.0):
 #     'D': [200, 780],
 # }
 
-# draw_rectangle_on_image('test/True.png', points, scale=0.5)
+# points = {
+#     'A': [1250, 580],
+#     'B': [1310, 690],
+#     'C': [1190, 925],
+#     'D': [1140, 780],
+# }
+
+# draw_box_on_image('test/Cam 4.jpg', points, scale=0.5)
 
 # point_test1 = np.array([500, 380])
 # point_test2 = np.array([700, 80])
