@@ -67,13 +67,13 @@ def draw_box_on_image(image_path, points, output_path=None, scale=1.0):
 # }
 
 # points = {
-#     'A': [1250, 580],
-#     'B': [1310, 690],
-#     'C': [1190, 925],
-#     'D': [1140, 780],
+#     'A': [1230, 600],
+#     'B': [1320, 710],
+#     'C': [1230, 880],
+#     'D': [1145, 770],
 # }
 
-# draw_box_on_image('test/Cam 4.jpg', points, scale=0.5)
+# draw_box_on_image('test/Cam 8.jpg', points, scale=0.5)
 
 # point_test1 = np.array([500, 380])
 # point_test2 = np.array([700, 80])

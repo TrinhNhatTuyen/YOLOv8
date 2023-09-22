@@ -6,7 +6,7 @@ url = 'rtsp://admin:Dat1qazxsw2@192.168.6.100:1554/h264_stream'
 # url = 'rtsp://admin:NuQuynhAnh@cam24423linhdong.smartddns.tv:1554/cam/realmonitor?channel=1&subtype=0&unicast=true'
 
 url = 'rtsp://admin:NuQuynhAnh@cam14423linhdong.smartddns.tv:1554/cam/realmonitor?channel=1&subtype=0&unicast=true' # Cam 1
-# url = 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 2
+url = 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 2
 # url = 'rtsp://admin:Admin123@mtkhp2420.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 3
 
 # url = 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 4
@@ -15,7 +15,7 @@ url = 'rtsp://admin:NuQuynhAnh@cam14423linhdong.smartddns.tv:1554/cam/realmonito
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 6
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 7
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 8
-url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80/cam/realmonitor?channel=1&subtype=0&unicast=true'           # Cam 8
+# url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80/cam/realmonitor?channel=1&subtype=0&unicast=true'           # Cam 8
 # url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80'
 
 fresh = object()

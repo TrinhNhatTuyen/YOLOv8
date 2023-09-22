@@ -1,4 +1,4 @@
-import cv2, requests, base64, json, datetime, time
+import cv2, requests, base64, json, datetime, time, pyodbc
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 from queue import Queue
@@ -17,9 +17,6 @@ humanpose_conf = 80
 queue_len = 60
 # ip = '192.168.6.17'
 ip = '125.253.117.120'
-# fcm = 'dSZbYbanSl-pIr8eBcL2KN:APA91bHsX7uv4J2TdaoEbxsZg9y3U_Y54QWkkBCw8Xko8It0-w5XbFY5ae6VIiM1iT_r-xDyzF_gq0jCorYx5aBN7OL49ULuC9ay5n1dUmCKO0X3HYa5Dv3X8aV7faym47ZcJWPBYhwo'
-# fcm = 'dwiwc-hqSSqauJ8sXPQkCM:APA91bH0kZuNqUxm1Q-vOuHgHvpfiEAA6gmkbAenmG_6pbFwZ-0QwrGg03sTaVBfKvySGSRk2w24mM4zGRNPjxpNHT9wXgywsDZGjumWPyYoxr-LzQ6PoIqb0Bl9HTOFIC522SDkK8f6'
-# fcm = 'fNM-TsWQSqmLsBUg9HejwR:APA91bG8owUPOWHA0mCHs4f8Pi3Pqtus0iLszlPajoeX2nQtYkQ8v6LpDe3n8b1zDI2FLxUKOs_fosMrkc-7TA_bN2kY9B8GGd1xe89GQESaL6Ir5Qlz3-zA2uFEe4Xd-KB55PEtxS32'
 
 #------------------------------------------------------------------------------------------------------------
 def remove_duplicates_and_none(input_list):
@@ -85,8 +82,8 @@ def get_fcm_to_send(camera_id):
     response = requests.post(api_url, json=data)
     return json.loads(response.text)
 
-def post_alert(fcms, title, body, data=None):
-    for fcm in fcms:
+def post_alert(fcm_list, title, body, data=None):
+    for fcm in fcm_list:
         # Đường dẫn API FCM
         url = 'https://fcm.googleapis.com/fcm/send'
         
@@ -95,8 +92,7 @@ def post_alert(fcms, title, body, data=None):
             'to': fcm,
             'notification': {
                 'title': title,
-                'body': body,
-                'priority': 'high',
+                'body': body
             },
         }
         
@@ -161,52 +157,121 @@ def drawbox(frame, points):
         pt2 = tuple(points[p2])
         cv2.line(frame, pt1, pt2, (0, 0, 255), 5)
     return frame
- 
-def pose_cls_video():
+
+def base64_to_array(anh_base64):
+        try:
+            img_arr = np.frombuffer(base64.b64decode(anh_base64), dtype=np.uint8)
+            img_arr = cv2.imdecode(img_arr, cv2.IMREAD_ANYCOLOR)
+        except:
+            return "Không chuyển được ảnh base64 sang array"
+        return img_arr
+
+def get_FaceRegData():
+    connection = pyodbc.connect("Driver={SQL Server};"
+                                "Server=112.78.15.3;"
+                                "Database=VinaAIAPP;"
+                                "uid=ngoi;"
+                                "pwd=admin123;")
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM FaceRegData")
+        rows = cursor.fetchall()
+        
+        result = []
+        for row in rows:
+            data_dict = {
+                "ImageID": row.ImageID,
+                "FaceID": row.FaceID,
+                "FaceName": row.FaceName,
+                "HomeID": row.HomeID,
+                "ImagePath": row.ImagePath,
+                "ImageArray": base64_to_array(row.Base64)
+            }
+            result.append(data_dict)
+        
+        return result
+    except Exception as e:
+        print(f"Error: {str(e)}")
+    finally:
+        cursor.close()
+        connection.close()
+
+def update_data(data):
+    """ Cập nhật lại list data
+    Args:
+        data (list): list thông tin nhận diện, trả về từ hàm "get_FaceRegData" được gọi lúc ban đầu
+    """
+    connection = pyodbc.connect("Driver={SQL Server};"
+                                "Server=112.78.15.3;"
+                                "Database=VinaAIAPP;"
+                                "uid=ngoi;"
+                                "pwd=admin123;")
+    cursor = connection.cursor()
     
+    cursor.execute("SELECT ImageID FROM FaceRegData")
+    rows = cursor.fetchall()
+    for row in rows:
+        image_id = row.ImageID
+        # Kiểm tra xem ImageID có trong danh sách data không
+        image_id_exists = any(entry["ImageID"] == image_id for entry in data)
+        if not image_id_exists:
+            try:
+                cursor.execute("SELECT * FROM FaceRegData WHERE ImageID=?", (image_id,))
+                row = cursor.fetchone()
+                if row:
+                    data_dict = {
+                        "ImageID": row.ImageID,
+                        "FaceID": row.FaceID,
+                        "FaceName": row.FaceName,
+                        "HomeID": row.HomeID,
+                        "ImagePath": row.ImagePath,
+                        "ImageArray": base64_to_array(row.Base64)
+                    }
+                    data.append(data_dict)
+            except Exception as e:
+                print(f"Error: {str(e)}")
+            finally:
+                cursor.close()
+                connection.close()
+
+
+# face_reg_data = get_FaceRegData()
+
+def pose_cls_video():
+    # global face_reg_data
     cam_data = get_camera_data()
     
-    # url = [
-    #         'rtsp://admin:NuQuynhAnh@cam14423linhdong.smartddns.tv:1554/cam/realmonitor?channel=1&subtype=0&unicast=true',        # Cam 1
-    #         # 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true',                # Cam 2
-    #         # 'rtsp://admin:Admin123@mtkhp2420.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true',                # Cam 3
-    #         # 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 4
-    #         # 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 5
-    #         # 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 6
-    #         # 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 7
-    #         'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 8
-    #         ]
-    
-    url, lockpicking_area, climbing_area, fcm_list, camera_name, t_oldframe = [], [], [], [], [], []
-    # Bỏ qua các cam chưa nhập LockpickingArea & ClimbingArea
+    #------------------------------------ Các thông tin của Camera ------------------------------------
+    url, lockpicking_area, climbing_area, fcm_list, camera_id, camera_name, homeid, lockid, related_camera_id = [], [], [], [], [], [], [], [], []
+    # Bỏ qua các cam chưa nhập LockpickingArea & ClimbingArea và không có LockID
     for cam in cam_data:
-        if (cam['LockpickingArea'] is not None) or (cam['ClimbingArea'] is not None):
+        if (cam['LockpickingArea'] is None) and (cam['ClimbingArea'] is None) and (cam['LockID'] is None):
             url.append(cam['RTSP'])
             lockpicking_area.append(cam['LockpickingArea'])
             climbing_area.append(cam['ClimbingArea'])
             fcm_list.append(cam['FCM'])
+            camera_id.append(cam['CameraID'])
+            related_camera_id.append(cam['RelatedCameraID'])
             camera_name.append(cam['CameraName'])
-            t_oldframe.append(None)
-    
+            homeid.append(cam['HomeID'])
+            lockid.append(cam['LockID'])
+            
     #------------------------------------ FRESHEST FRAME ------------------------------------
-    fresh, frame, cnt, first_frame, second_frame, None_frame, cam_name, q_lockpicking, q_climbing= [], [], [], [], [], [], [], [], []
+    fresh, frame, cnt, first_frame, second_frame, t_oldframe, None_frame, q_lockpicking, q_climbing = [], [], [], [], [], [], [], [], []
     for i in range(len(url)):
         fresh.append(FreshestFrame(cv2.VideoCapture(url[i])))
         frame.append(object())
         cnt.append(0)
         first_frame.append(None)
         second_frame.append(None)
+        t_oldframe.append(None)
         None_frame.append(0)
-        cam_name.append(f'Cam {i+4}')
         
         q_lockpicking.append(Queue(maxsize=queue_len))
         q_climbing.append(Queue(maxsize=queue_len))
         
     scale = 0.5
-    data = {
-        'key1': 'value1',
-        'key2': 'value2'
-    }
     thres = 80
     input = None
     
@@ -303,7 +368,7 @@ def pose_cls_video():
                                     if prob >= thres and label=='lockpicking':
                                         if result_queue(q_lockpicking[CC], True):
                                             text = 'Mở khoá' + " ({:.2f}%)".format(prob)
-                                            post_alert(fcms=fcm_list[CC], title=title, body=text)
+                                            post_alert(fcm_list=fcm_list[CC], title=title, body=text)
                                             save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title, body=text) # Lưu lại thông tin cảnh báo
                                             background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                                         else:
@@ -452,7 +517,8 @@ def pose_cls_video():
     cv2.destroyAllWindows()
     # print('Restarting...')
     
-    
+
+a = get_camera_data()  
 pose_cls_video()
 # while True:
 #     try:

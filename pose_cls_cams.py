@@ -153,13 +153,14 @@ def pose_cls_video(r_queue=False):
             'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true',                 # Cam 8
             ]
     #------------------------------------ FRESHEST FRAME ------------------------------------
-    fresh, frame, cnt, first_frame, second_frame, None_frame, cam_name, list_fcm = [], [], [], [], [], [], [], []
+    fresh, frame, cnt, first_frame, second_frame, None_frame, cam_name, list_fcm, t_oldframe = [], [], [], [], [], [], [], [], []
     for i in range(len(url)):
         fresh.append(object())
         frame.append(object())
         cnt.append(0)
         first_frame.append(None)
         second_frame.append(None)
+        t_oldframe.append(None)
         None_frame.append(0)
         cam_name.append(f'Cam {i+4}')
         
@@ -204,6 +205,10 @@ def pose_cls_video(r_queue=False):
                     print("Cannot read frame from camera!")
                     raise Exception()
                 
+                timer =time.time()
+                if t_oldframe[CC] is None:
+                    t_oldframe[CC] = timer
+                
                 if first_frame[CC] is None:
                     first_frame[CC] = frame[CC]
                     None_frame[CC]+=1
@@ -216,7 +221,8 @@ def pose_cls_video(r_queue=False):
                     continue
                 
                 prob = 0
-                # try:
+                
+                fps = 1/(timer-t_oldframe[CC])
 
                 # results = model(cv2.resize(frame, (640,640)), save=False)
                 results = model(frame[CC], save=False)
@@ -352,7 +358,10 @@ def pose_cls_video(r_queue=False):
                     pt1 = tuple(points[cam_name_list[CC]][p1])
                     pt2 = tuple(points[cam_name_list[CC]][p2])
                     cv2.line(frame[CC], pt1, pt2, (0, 0, 255), 5)
-                        
+                
+                # Hiện FPS
+                cv2.putText(frame[CC], "fps: {:.2f}".format(fps), (20,50),cv2.FONT_HERSHEY_SIMPLEX, 1, (23, 155, 255), 2)
+                 
                 frame[CC] = cv2.resize(frame[CC], 
                                     (int((frame[CC].shape[1])*scale),int((frame[CC].shape[0])*scale)))
                 

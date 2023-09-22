@@ -5,8 +5,8 @@ from ultralytics import YOLO
 model = YOLO('yolov8n-pose.pt')
 
 # cap = cv2.VideoCapture('rtsp://admin:Dat1qazxsw2@192.168.6.100/h264_stream')
-# video = 'D:/Code/datatest/smthgelse/Toankungfu(1).mp4'
-video = 'D:/Code/classroom/video/classroom2.mp4'
+video = 'D:/Code/datatest/smthgelse/Toankungfu(1).mp4'
+# video = 'D:/Code/classroom/video/classroom2.mp4'
 cap = cv2.VideoCapture(video)
 
 # Xác định thông số video đầu vào
