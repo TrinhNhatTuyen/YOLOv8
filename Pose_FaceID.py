@@ -13,6 +13,7 @@ from face_detect import detect_face
 from facereg_model import loadVggFaceModel
 from eyeblink import predictor_eye, get_blinking_ratio
 from padding_image import padding
+from firebase_admin import credentials, messaging
 
 detector = cv2.dnn.readNetFromCaffe("pre_model/deploy.prototxt","pre_model/res10_300x300_ssd_iter_140000.caffemodel")
 
@@ -94,35 +95,17 @@ def get_fcm_to_send(camera_id):
     response = requests.post(api_url, json=data)
     return json.loads(response.text)
 
-def post_alert(fcm_list, title, body, data=None):
-    for fcm in fcm_list:
-        # Đường dẫn API FCM
-        url = 'https://fcm.googleapis.com/fcm/send'
-        
-        # Đặt thông báo đẩy
-        payload = {
-            'to': fcm,
-            'notification': {
-                'title': title,
-                'body': body
-            },
-        }
-        
-        # Thêm dữ liệu tùy chỉnh (nếu có)
-        if data:
-            payload['data'] = data
-        
-        # Đặt tiêu đề của thông báo gửi tới FCM
-        headers = {
-            'Authorization': 'Key=AAAAUM0_kA0:APA91bFq6fvEmRIHZrF4VYTpTcsZHDo_bXvfm1jearG3A8BuNh_pEHtQtYhfGkbDkzsPm_lEwSh-t1LKB50c89wTaEs6N_RAqw7-JhNoUgmA_S5XyNA63E9MICw19QGwCSshw_o_sefG',
-            'Content-Type': 'application/json'
-        }
-        
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            print('Thông báo đẩy đã được gửi thành công.')
-        else:
-            print('Gửi thông báo đẩy không thành công. Mã lỗi:', response.status_code)
+def post_alert(fcms, title, body, data=None):
+    message = messaging.MulticastMessage( 
+                            notification = messaging.Notification( title=title, body=body), 
+                            # android=messaging.AndroidConfig( priority='high', notification=messaging.AndroidNotification( sound=sound_path, image=image_url ), ), 
+                            # apns=messaging.APNSConfig( payload=messaging.APNSPayload( aps=messaging.Aps( sound=sound_path ), ), ), 
+                            tokens=fcms
+                            )
+    # Gửi thông báo đến thiết bị cụ thể
+    response = messaging.send_multicast(message)
+    print(f"Failure Count: {response.failure_count}")
+    return response.failure_count
 
 def get_camera_data():
     
@@ -431,7 +414,7 @@ def pose_cls_video():
             
             
             #===================================== Nhận diện khung xương ===============================================#
-            if percentage>=0.1 and task[CC]=='Pose' and (lastest_detected_face[CC] is not None):
+            if percentage>=0.1 and task[CC]=='Pose' and (lastest_detected_face[CC] is None):
                 results = model(frame[CC], save=False)
                 annotated_frame = results[0].plot(boxes=False)
                 
@@ -532,7 +515,7 @@ def pose_cls_video():
                                         
                             
                             #===========================================================================================================# 
-                            if lockpicking_area[CC] is not None:
+                            if climbing_area[CC] is not None:
                                 for point in climbing_area[CC]:
                                     # Kiểm tra nếu k có thông tin vùng Mở khóa, break
                                     if climbing_area[CC][point] is None:
@@ -609,6 +592,9 @@ def pose_cls_video():
                                         draw.text(text_position, text, font=font, fill=font_color)
                                         # Chuyển đổi ảnh PIL thành ảnh Numpy
                                         annotated_frame = np.array(pil_image)
+                                        
+                                    else:
+                                        result_queue(q_climbing, False)
             #-----------------------------------------------------------------------------------------------------------#
             frame[CC] = annotated_frame
             

@@ -6,7 +6,7 @@ from tensorflow.keras.models import load_model
 from overstepframe import FreshestFrame
 from inside_the_box import inside_the_box
 from datetime import datetime
-
+from firebase_admin import credentials, messaging
 # from firebase_admin import credentials, messaging
 #------------------------------------ LOAD MODEL ------------------------------------
 from ultralytics import YOLO
@@ -18,19 +18,20 @@ points = {
     'Cam1':
     {
         'A': [800, 0],
-        'B': [985, 0],
-        'C': [865, 1080],
+        'B': [1005, 0],
+        'C': [875, 1080],
         'D': [500, 1080],
     },
     'Cam8':
     {
-        'A': [1250, 580],
-        'B': [1310, 700],
-        'C': [1190, 925],
-        'D': [1140, 780],
+        'A': [1230, 600],
+        'B': [1320, 710],
+        'C': [1230, 880],
+        'D': [1145, 770],
     },
 }
 cam_name_list = ['Cam1', 'Cam8']
+# cam_name_list = ['Cam8']
 humanpose_conf = 80
 queue_len = 90
 # ip = '192.168.6.17'
@@ -77,7 +78,7 @@ def get_camera_id(rtsp):
     response = requests.post(api_url, json=data)
     return response.json()['message']
 
-def save_alert_img(frame, camera_id, title, body):
+def save_alert_img(frame, camera_id, title, body, formatted_time):
     api_url = 'http://'+ip+':5001/api/notification/save'
     # Chuyển đổi dữ liệu ảnh thành chuỗi base64
     _, image_data = cv2.imencode('.jpg', frame)
@@ -90,6 +91,7 @@ def save_alert_img(frame, camera_id, title, body):
         'title': title,
         'body': body,
         'base64': base64_image,
+        'formatted_time': formatted_time,
     }
     response = requests.post(api_url, json=data)
     print(response.json())
@@ -104,35 +106,16 @@ def get_fcm_to_send(camera_id):
     return json.loads(response.text)
 
 def post_alert(fcms, title, body, data=None):
-    for fcm in fcms:
-        # Đường dẫn API FCM
-        url = 'https://fcm.googleapis.com/fcm/send'
-        
-        # Đặt thông báo đẩy
-        payload = {
-            'to': fcm,
-            'notification': {
-                'title': title,
-                'body': body
-            },
-            # 'image': 'https://cdn.pixabay.com/photo/2017/09/01/00/15/png-2702691_640.png'  
-        }
-        
-        # Thêm dữ liệu tùy chỉnh (nếu có)
-        if data:
-            payload['data'] = data
-        
-        # Đặt tiêu đề của thông báo gửi tới FCM
-        headers = {
-            'Authorization': 'Key=AAAAUM0_kA0:APA91bFq6fvEmRIHZrF4VYTpTcsZHDo_bXvfm1jearG3A8BuNh_pEHtQtYhfGkbDkzsPm_lEwSh-t1LKB50c89wTaEs6N_RAqw7-JhNoUgmA_S5XyNA63E9MICw19QGwCSshw_o_sefG',
-            'Content-Type': 'application/json'
-        }
-        
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            print('Thông báo đẩy đã được gửi thành công.')
-        else:
-            print('Gửi thông báo đẩy không thành công. Mã lỗi:', response.status_code)
+    message = messaging.MulticastMessage( 
+                            notification = messaging.Notification( title=title, body=body), 
+                            # android=messaging.AndroidConfig( priority='high', notification=messaging.AndroidNotification( sound=sound_path, image=image_url ), ), 
+                            # apns=messaging.APNSConfig( payload=messaging.APNSPayload( aps=messaging.Aps( sound=sound_path ), ), ), 
+                            tokens=fcms
+                            )
+    # Gửi thông báo đến thiết bị cụ thể
+    response = messaging.send_multicast(message)
+    print(f"Failure Count: {response.failure_count}")
+    return response.failure_count
     
 def pose_cls_video(r_queue=False):
     # fcm = 'dSZbYbanSl-pIr8eBcL2KN:APA91bHsX7uv4J2TdaoEbxsZg9y3U_Y54QWkkBCw8Xko8It0-w5XbFY5ae6VIiM1iT_r-xDyzF_gq0jCorYx5aBN7OL49ULuC9ay5n1dUmCKO0X3HYa5Dv3X8aV7faym47ZcJWPBYhwo'
@@ -208,11 +191,14 @@ def pose_cls_video(r_queue=False):
                 timer =time.time()
                 if t_oldframe[CC] is None:
                     t_oldframe[CC] = timer
-                
+                    
                 if first_frame[CC] is None:
                     first_frame[CC] = frame[CC]
                     None_frame[CC]+=1
                     continue
+                
+                current_time = datetime.now()
+                formatted_time = current_time.strftime("%d-%m-%Y %Hh%M'%S\"")
                 
                 try:
                     frame[CC] = cv2.resize(frame[CC], (1920,1080))
@@ -221,7 +207,6 @@ def pose_cls_video(r_queue=False):
                     continue
                 
                 prob = 0
-                
                 fps = 1/(timer-t_oldframe[CC])
 
                 # results = model(cv2.resize(frame, (640,640)), save=False)
@@ -256,10 +241,11 @@ def pose_cls_video(r_queue=False):
                             prob = np.max(pred)*100
                             #===========================================================================================================#
                             # Nếu phát hiện mở khóa
-                            current_time = datetime.now()
+                            # current_time = datetime.now()
                             title_save_ntf=f"Có ăn trộm"
-                            title_fcm=f"{cam_name_list[CC]} - " + current_time.strftime("%Hh%M'%S\" %d-%m-%Y") 
+                            # title_fcm=f"{cam_name_list[CC]} - " + current_time.strftime("%Hh%M'%S\" %d-%m-%Y") 
                             if prob >= thres and label=='lockpicking':
+                                title_fcm=f"{cam_name_list[CC]} - Mở khóa"
                                 if r_queue:
                                     if result_queue(q_lockpicking, True):
                                         text = 'Hành vi mở khoá' + " ({:.2f}%)".format(prob)
@@ -277,6 +263,7 @@ def pose_cls_video(r_queue=False):
                                     # text = "({:.2f}%)".format(prob)
                                     background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                             elif prob >= thres and label=='climbing':
+                                title_fcm=f"{cam_name_list[CC]} - Leo rào"
                                 if r_queue:
                                     if result_queue(q_climbing, True):
                                         text = 'Hành vi leo rào' + " ({:.2f}%)".format(prob)
@@ -337,16 +324,19 @@ def pose_cls_video(r_queue=False):
                             if prob >= thres and label=='lockpicking':
                                 if r_queue:
                                     if result_queue(q_lockpicking, True):
-                                        save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text) # Lưu lại thông tin cảnh báo
+                                        save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text, formatted_time=formatted_time) # Lưu lại thông tin cảnh báo
                                 else:
-                                    save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text) # Lưu lại thông tin cảnh báo
+                                    save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text, formatted_time=formatted_time) # Lưu lại thông tin cảnh báo
                             elif prob >= thres and label=='climbing':
                                 if r_queue:
                                     if result_queue(q_climbing, True):
-                                        save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text) # Lưu lại thông tin cảnh báo
+                                        save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text, formatted_time=formatted_time) # Lưu lại thông tin cảnh báo
                                 else:
-                                    save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text) # Lưu lại thông tin cảnh báo
+                                    save_alert_img(annotated_frame, camera_id=get_camera_id(url[CC]), title=title_save_ntf, body=text, formatted_time=formatted_time) # Lưu lại thông tin cảnh báo
                         
+                        else:
+                            result_queue(q_lockpicking, False)
+                            result_queue(q_climbing, False)
                 else:
                     if result_queue:
                         result_queue(q_lockpicking, False)
@@ -361,7 +351,7 @@ def pose_cls_video(r_queue=False):
                 
                 # Hiện FPS
                 cv2.putText(frame[CC], "fps: {:.2f}".format(fps), (20,50),cv2.FONT_HERSHEY_SIMPLEX, 1, (23, 155, 255), 2)
-                 
+                        
                 frame[CC] = cv2.resize(frame[CC], 
                                     (int((frame[CC].shape[1])*scale),int((frame[CC].shape[0])*scale)))
                 
