@@ -1,116 +1,157 @@
-import cv2, pickle, os
-from ultralytics import YOLO
+import os, shutil, cv2, pyodbc, base64, time
+import numpy as np
+from PIL import Image
+from io import BytesIO
+from scipy.spatial.distance import cosine, euclidean
+
+from scipy.spatial.distance import euclidean
+from PIL import Image
 import numpy as np
 
-# Load a model
-model = YOLO('YOLOv8n-pose.pt')
+def image_path_to_array(image_path):
+    # Đọc hình ảnh từ đường dẫn và chuyển đổi thành mảng NumPy
+    img = Image.open(image_path)
+    img_array = np.array(img)/255.0
+    return img_array
 
-############ ------------>>> https://docs.ultralytics.com/modes/predict/#arguments <<<------------ ############
+def calculate_euclidean_distance(image_path1, image_path2):
+    thresh = 127
+    # Chuyển đổi hai hình ảnh thành mảng NumPy
+    img_array1 = image_path_to_array(image_path1)
+    img_array2 = image_path_to_array(image_path2)
 
-list_arr = []
+    # Tính khoảng cách Euclidean giữa hai mảng
+    distance = euclidean(img_array1.ravel(), img_array2.ravel())
+    
+    return distance
 
-import cv2, os
-from ultralytics import YOLO
-model = YOLO('YOLOv8n-pose.pt')
-video_type = 'smthgelse'
-# video_type = 'climbing'
-# video_type = 'lockpicking'
-folder_path = f'D:/Code/datatest/{video_type}'
-for file_name in os.listdir(folder_path):
-    file_path = folder_path + '/' + file_name
-    if os.path.isfile(file_path) and file_name.endswith('.mp4'):
+# # Sử dụng hàm để tính khoảng cách giữa hai hình ảnh
+# image_path1 = "hinhtrain/5015/1/2023-09-19_13h13m55s.jpg"
+# image_path2 = "hinhtrain/5015/1/2023-09-19_13h26m27s.jpg"
 
-        pkl_file = f'{video_type}/' + file_path.split('/')[-1].split('.')[0] + '.pkl'
-        if not os.path.exists(pkl_file):
+# distance = calculate_euclidean_distance(image_path1, image_path2)
+# print(f"Khoảng cách Euclidean giữa hai hình ảnh: {distance}")
+
+
+def download_hinhtrain():
+    """Xóa "hinhtrain" và tải lại tất cả
+    """
+    # Clear folder "hinhtrain" 
+    if os.path.exists("hinhtrain"):
+        shutil.rmtree("hinhtrain")
         
-            cap = cv2.VideoCapture(file_path)
-
-            # Xác định thông số video đầu vào
-            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-
-            # Tạo đối tượng VideoWriter để ghi video
-            output_video = f'{video_type}/' + file_path.split('/')[-1].split('.')[0] + '.mp4'
-            out = cv2.VideoWriter(output_video, cv2.VideoWriter_fourcc(*'mp4v'), 10.0, (frame_width, frame_height))
-
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if ret:
-
+    try:
+        conn = pyodbc.connect("Driver={SQL Server};"
+                      "Server=112.78.15.3;"
+                      "Database=VinaAIAPP;"
+                      "uid=ngoi;"
+                      "pwd=admin123;")
+        cursor = conn.cursor()
+        cursor.execute("SELECT ImageID, Base64, ImagePath FROM FaceRegData")
+        for row in cursor.fetchall():
+            image_id, base64_data, image_path = row
+            if os.path.exists(image_path):
+                continue
+            if base64_data:
+                try:
+                    anh_base64 = np.frombuffer(base64.b64decode(base64_data), dtype=np.uint8)
+                    anh_base64 = cv2.imdecode(anh_base64, cv2.IMREAD_ANYCOLOR)
                     
-                    results = model(frame, save=False)
-                    flip_results = model(cv2.flip(frame, 1), save=False)
-                    
-                    annotated_frame = results[0].plot()
-                    
-                    out.write(annotated_frame)
-                    
-                    # cv2.putText(annotated_frame, "fps: {:.2f}".format(fps), (20,50),cv2.FONT_HERSHEY_SIMPLEX, 1, (23, 155, 255), 2)
-                    frame = cv2.resize(annotated_frame, ((int)((annotated_frame.shape[1])*0.6),(int)((annotated_frame.shape[0])*0.6)))
-                    cv2.imshow(file_name, frame)
-                    
-                    keypoints_arrs = results[0].keypoints.data.numpy()
-                    flip_keypoints_arrs = flip_results[0].keypoints.data.numpy()
-            # # ------------------------------------------------------------------------ #
-                    try:
-                        # Nếu conf của object số 0 được lớn hơn 0.75
-                        if float(results[0].boxes.data[0][4]) >= 0.75:
-                            
-                            keypoints_arrs[0,:,0] = keypoints_arrs[0,:,0]/frame_width
-                            keypoints_arrs[0,:,1] = keypoints_arrs[0,:,1]/frame_width
-                            x_min = np.min(keypoints_arrs[0,:,0])
-                            y_min = np.min(keypoints_arrs[0,:,1])
-                            keypoints_arrs[0,:,0] -= x_min
-                            keypoints_arrs[0,:,1] -= y_min
-                            list_arr.append(keypoints_arrs[0,:,:])
-                            
-                            flip_keypoints_arrs[0,:,0] = flip_keypoints_arrs[0,:,0]/frame_width
-                            flip_keypoints_arrs[0,:,1] = flip_keypoints_arrs[0,:,1]/frame_width
-                            flip_x_min = np.min(flip_keypoints_arrs[0,:,0])
-                            flip_y_min = np.min(flip_keypoints_arrs[0,:,1])
-                            flip_keypoints_arrs[0,:,0] -= flip_x_min
-                            flip_keypoints_arrs[0,:,1] -= flip_y_min
-                            list_arr.append(flip_keypoints_arrs[0,:,:])
-                    except:
-                        continue
-                    
+                    if not os.path.exists(os.path.dirname(image_path)):
+                        os.makedirs(os.path.dirname(image_path))
+                        
+                    cv2.imwrite(image_path, anh_base64)
 
-                    try:
-                        if file_name.startswith("Toankungfu"):
-                            if len(keypoints_arrs[1])==17:
-                                
-                                keypoints_arrs[1,:,0] = keypoints_arrs[1,:,0]/frame_width
-                                keypoints_arrs[1,:,1] = keypoints_arrs[1,:,1]/frame_width
-                                x_min = np.min(keypoints_arrs[1,:,0])
-                                y_min = np.min(keypoints_arrs[1,:,1])
-                                keypoints_arrs[1,:,0] -= x_min
-                                keypoints_arrs[1,:,1] -= y_min
-                                list_arr.append(keypoints_arrs[1,:,:])
-                                
-                                flip_keypoints_arrs[1,:,0] = flip_keypoints_arrs[1,:,0]/frame_width
-                                flip_keypoints_arrs[1,:,1] = flip_keypoints_arrs[1,:,1]/frame_width
-                                flip_x_min = np.min(flip_keypoints_arrs[1,:,0])
-                                flip_y_min = np.min(flip_keypoints_arrs[1,:,1])
-                                flip_keypoints_arrs[1,:,0] -= flip_x_min
-                                flip_keypoints_arrs[1,:,1] -= flip_y_min
-                                list_arr.append(flip_keypoints_arrs[1,:,:])
-                    except:
-                        continue
-                else:
-                    break
-                
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            cap.release()
-            out.release()
-            cv2.destroyAllWindows()
+                    print(f"Đã lưu hình ảnh từ ImageID {image_id} vào {image_path}")
 
+                except Exception as e:
+                    print(f"Lỗi khi xử lý ImageID {image_id}: {str(e)}")
+
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"Lỗi khi kết nối đến cơ sở dữ liệu: {str(e)}")
+
+def load_hinhtrain(root_folder='hinhtrain'):
+    """ Trả về dict có cấu trúc như thư mục "hinhtrain", chứa 3D array của các ảnh nhận diện
+    """
+    image_data = {}  # Dictionary để lưu trữ dữ liệu ảnh
+
+    # Duyệt qua các thư mục HomeID
+    for homeid in os.listdir(root_folder):
+        home_path = os.path.join(root_folder, homeid)
+        if os.path.isdir(home_path):
             
-            with open(pkl_file, 'wb') as file:
-                pickle.dump(np.array(list_arr), file)
+            folder_face_id = {}
+            
+            # Duyệt qua các thư mục FaceID
+            for face_id in os.listdir(home_path):
+                face_path = os.path.join(home_path, face_id)
+                if os.path.isdir(face_path):
+                    
+                    folder_images = {}
+                    
+                    for image_name in os.listdir(face_path):
+                        image_path = os.path.join(face_path, image_name)
 
-# with open(pkl_file, 'rb') as file:
-#     loaded_data = pickle.load(file)
-#     print()
+                        # Kiểm tra xem image_path có phải là tệp hình ảnh và tồn tại không
+                        if os.path.isfile(image_path) and image_name.endswith(('.jpg', '.jpeg', '.png')):
+                            # Sử dụng OpenCV để đọc hình ảnh và chuyển đổi thành mảng NumPy
+                            image = cv2.imread(image_path)
+                            if image is not None:
+                                # Đưa về 1D array và chuẩn hóa các giá trị pixel về khoảng 0-1
+                                folder_images[image_name] = image.reshape(-1).astype(np.float32) / 255.0
 
+                    # Thêm dictionary của thư mục vào dictionary tổng
+                    folder_face_id[face_id] = folder_images
+                
+            image_data[homeid] = folder_face_id
+    
+    return image_data
+
+
+#---------------------------------------------------------------------------------------------
+start_time = time.time()
+download_hinhtrain()
+image_data = load_hinhtrain()
+
+# elapsed_time = time.time() - start_time
+# print("Thời gian chạy hàm: {:.2f} giây".format(elapsed_time))
+def compare_imgs(image_data, face2compare, homeid):
+    """ So khớp khuôn mặt
+
+    Args:
+        image_data (dict): Danh sách các array trong dữ liệu nhận diện
+        face2compare (array): captured_representation = model.predict(samples_fn)
+        homeid (str): homeid của cam hiện tại
+    """
+    name = None
+    image = None
+    minratio=1
+    for face_id in image_data[homeid]:
+        for img in image_data[homeid][face_id]:
+            if img=='2023-09-19_13h13m55s.jpg':
+                continue
+            print(image_data[homeid][face_id][img].shape)
+            similarity = cosine(image_data[homeid][face_id][img].reshape(-1), face2compare.reshape(-1))
+            # print(euclidean(employees[CC], captured_representation))
+            if(similarity)<minratio: 
+                minratio=similarity
+                name = face_id
+                image = img
+                
+                
+    eucli = euclidean(image_data[homeid][name][image].reshape(-1), face2compare.reshape(-1))
+    return(minratio < 0.38 and eucli <90)
+
+# a = cv2.imread('hinhtrain/5015/1/2023-09-19_13h13m55s.jpg').astype(np.float32) / 255.0
+# result = compare_imgs(image_data, face2compare=a, homeid='5015')
+# print(result)
+print('Done!')
+
+
+# for homeid in image_data:
+#     for face_id in image_data[homeid]:
+#         for img in image_data[homeid][face_id]:
+#             print(image_data[homeid][face_id][img].shape)        
