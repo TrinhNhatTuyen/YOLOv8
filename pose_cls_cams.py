@@ -6,34 +6,35 @@ from tensorflow.keras.models import load_model
 from overstepframe import FreshestFrame
 from inside_the_box import inside_the_box
 from datetime import datetime
+import firebase_admin
 from firebase_admin import credentials, messaging
-# from firebase_admin import credentials, messaging
 #------------------------------------ LOAD MODEL ------------------------------------
 from ultralytics import YOLO
 model = YOLO('YOLOv8n-pose.pt')
-pose_cls = load_model('pose_cls_v3.h5')
-
+pose_cls = load_model('pose_cls_v4.h5')
+cred = credentials.Certificate('ngocvinaai-firebase-adminsdk-57cev-f76ad280d7.json')
+firebase_admin.initialize_app(cred)
 #------------------------------------ PARAMETERS ------------------------------------
 points = {
     'Cam1':
     {
-        'A': [800, 0],
-        'B': [1005, 0],
-        'C': [875, 1080],
-        'D': [500, 1080],
+        'A': [922, 160],
+        'B': [1000, 160],
+        'C': [1020, 250],
+        'D': [922, 233],
     },
     'Cam8':
     {
-        'A': [1230, 600],
-        'B': [1320, 710],
-        'C': [1230, 880],
-        'D': [1145, 770],
+        'A': [1247, 573],
+        'B': [1340, 650],
+        'C': [1270, 785],
+        'D': [1200, 693],
     },
 }
 cam_name_list = ['Cam1', 'Cam8']
 # cam_name_list = ['Cam8']
 humanpose_conf = 80
-queue_len = 90
+queue_len = 10
 # ip = '192.168.6.17'
 ip = '125.253.117.120'
 # fcm = 'dSZbYbanSl-pIr8eBcL2KN:APA91bHsX7uv4J2TdaoEbxsZg9y3U_Y54QWkkBCw8Xko8It0-w5XbFY5ae6VIiM1iT_r-xDyzF_gq0jCorYx5aBN7OL49ULuC9ay5n1dUmCKO0X3HYa5Dv3X8aV7faym47ZcJWPBYhwo'
@@ -108,14 +109,18 @@ def get_fcm_to_send(camera_id):
 def post_alert(fcms, title, body, data=None):
     message = messaging.MulticastMessage( 
                             notification = messaging.Notification( title=title, body=body), 
-                            # android=messaging.AndroidConfig( priority='high', notification=messaging.AndroidNotification( sound=sound_path, image=image_url ), ), 
+                            android=messaging.AndroidConfig( 
+                                                            priority='high', 
+                                                            notification=messaging.AndroidNotification(sound='res_sound45', priority='max')), 
                             # apns=messaging.APNSConfig( payload=messaging.APNSPayload( aps=messaging.Aps( sound=sound_path ), ), ), 
                             tokens=fcms
                             )
     # Gửi thông báo đến thiết bị cụ thể
     response = messaging.send_multicast(message)
-    print(f"Failure Count: {response.failure_count}")
-    return response.failure_count
+    if response.failure_count==0:
+        print("Gửi thông báo thành công!")
+    else:
+        print(f"Gửi thành công {response.success_count}, thất bại {response.failure_count}")
     
 def pose_cls_video(r_queue=False):
     # fcm = 'dSZbYbanSl-pIr8eBcL2KN:APA91bHsX7uv4J2TdaoEbxsZg9y3U_Y54QWkkBCw8Xko8It0-w5XbFY5ae6VIiM1iT_r-xDyzF_gq0jCorYx5aBN7OL49ULuC9ay5n1dUmCKO0X3HYa5Dv3X8aV7faym47ZcJWPBYhwo'
@@ -158,7 +163,7 @@ def pose_cls_video(r_queue=False):
         'key1': 'value1',
         'key2': 'value2'
     }
-    thres = 80
+    thres = 90
     input = None
     
     q_lockpicking = Queue(maxsize=queue_len)
@@ -199,6 +204,7 @@ def pose_cls_video(r_queue=False):
                 
                 current_time = datetime.now()
                 formatted_time = current_time.strftime("%d-%m-%Y %Hh%M'%S\"")
+                formatted_time_ntf = ' lúc ' + current_time.strftime("%Hh%M'%S\" %d-%m-%Y")
                 
                 try:
                     frame[CC] = cv2.resize(frame[CC], (1920,1080))
@@ -208,6 +214,7 @@ def pose_cls_video(r_queue=False):
                 
                 prob = 0
                 fps = 1/(timer-t_oldframe[CC])
+                t_oldframe[CC] = timer
 
                 # results = model(cv2.resize(frame, (640,640)), save=False)
                 results = model(frame[CC], save=False)
@@ -250,7 +257,7 @@ def pose_cls_video(r_queue=False):
                                     if result_queue(q_lockpicking, True):
                                         text = 'Hành vi mở khoá' + " ({:.2f}%)".format(prob)
                                         # save_alert_img(frame[CC], camera_id=get_camera_id(url[CC]), title=title, body=text) # Lưu lại thông tin cảnh báo
-                                        post_alert(fcms=list_fcm[CC], title=title_fcm, body=text)
+                                        post_alert(fcms=list_fcm[CC], title=title_fcm, body=text+formatted_time_ntf)
                                         # text = "({:.2f}%)".format(prob)
                                         background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                                     else:
@@ -259,7 +266,7 @@ def pose_cls_video(r_queue=False):
                                 else:
                                     text = 'Hành vi mở khoá' + " ({:.2f}%)".format(prob)
                                     # save_alert_img(frame[CC], camera_id=get_camera_id(url[CC]), title=title, body=text) # Lưu lại thông tin cảnh báo
-                                    post_alert(fcms=list_fcm[CC], title=title_fcm, body=text)
+                                    post_alert(fcms=list_fcm[CC], title=title_fcm, body=text+formatted_time_ntf)
                                     # text = "({:.2f}%)".format(prob)
                                     background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                             elif prob >= thres and label=='climbing':
@@ -268,7 +275,7 @@ def pose_cls_video(r_queue=False):
                                     if result_queue(q_climbing, True):
                                         text = 'Hành vi leo rào' + " ({:.2f}%)".format(prob)
                                         # save_alert_img(frame[CC], camera_id=get_camera_id(url[CC]), title=title, body=text) # Lưu lại thông tin cảnh báo
-                                        post_alert(fcms=list_fcm[CC], title=title_fcm, body=text)
+                                        post_alert(fcms=list_fcm[CC], title=title_fcm, body=text+formatted_time_ntf)
                                         # text = "({:.2f}%)".format(prob)
                                         background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                                     else:
@@ -277,7 +284,7 @@ def pose_cls_video(r_queue=False):
                                 else:
                                     text = 'Hành vi leo rào' + " ({:.2f}%)".format(prob)
                                     # save_alert_img(frame[CC], camera_id=get_camera_id(url[CC]), title=title, body=text) # Lưu lại thông tin cảnh báo
-                                    post_alert(fcms=list_fcm[CC], title=title_fcm, body=text)
+                                    post_alert(fcms=list_fcm[CC], title=title_fcm, body=text+formatted_time_ntf)
                                     # text = "({:.2f}%)".format(prob)
                                     background_color = (0, 0, 255)  # Màu đỏ (B, G, R)
                             else:
@@ -377,11 +384,11 @@ def pose_cls_video(r_queue=False):
     # print('Restarting...')
 
 while True:
-    try:
-        pose_cls_video()
-    except:
-        print("Lỗi nằm ngoài vòng WHILE !!!")
-        pass
+    # try:
+    pose_cls_video(r_queue=True)
+    # except:
+    #     print("Lỗi nằm ngoài vòng WHILE !!!")
+    #     pass
 
 
 # for i in range(3):

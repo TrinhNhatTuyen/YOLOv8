@@ -253,7 +253,7 @@ def pose_cls_video():
             
             # gọi lỗi nếu k đọc được frame từ camera
             if first_frame[CC] is None:
-                first_frame[CC] = frame[CC]
+                first_frame[CC] = frame[CC].copy()
                 None_frame[CC]+=1
                 continue
             
@@ -263,6 +263,7 @@ def pose_cls_video():
             prob = 0
             current_time = datetime.datetime.now()
             formatted_time = current_time.strftime("%d-%m-%Y %Hh%M'%S\"")
+            formatted_time_ntf = ' lúc ' + current_time.strftime("%Hh%M'%S\" %d-%m-%Y")
             
             fps = 1/(timer-t_oldframe[CC])
             t_oldframe[CC] = timer
@@ -270,12 +271,12 @@ def pose_cls_video():
             first_frame[CC] = cv2.cvtColor(first_frame[CC], cv2.COLOR_BGR2GRAY)
             first_frame[CC] = cv2.threshold(first_frame[CC], thresh, 255, cv2.THRESH_BINARY)[1]
 
-            second_frame[CC] = frame[CC]
+            second_frame[CC] = frame[CC].copy()
             second_frame[CC] = cv2.cvtColor(second_frame[CC], cv2.COLOR_BGR2GRAY)
             second_frame[CC] = cv2.threshold(second_frame[CC], thresh, 255, cv2.THRESH_BINARY)[1]
 
             res = cv2.absdiff(first_frame[CC], second_frame[CC])
-            first_frame[CC] = frame[CC]
+            first_frame[CC] = frame[CC].copy()
             res = res.astype(np.uint8)
             percentage = (np.count_nonzero(res) * 100)/ res.size
             # print('FRAM DIFF: ', percentage)
@@ -288,6 +289,9 @@ def pose_cls_video():
             
             #====================================== Nhận diện khuôn mặt ================================================#
             if percentage>=0.1 and task[CC]=='FaceID':
+                # Nếu nhà đó đã có dữ liệu nhận diện
+                # if str(homeid[CC]) in known_persons:
+                #     continue
                 # Call Face Detect
                 detections_df = detect_face(frame[CC],detector)
                 # Nếu không có ai trong khung hình
@@ -352,19 +356,26 @@ def pose_cls_video():
                         captured_representation = model.predict(samples_fn)
                         ####
                         minratio=1
+                        eucli=1000
                         # faceid='noname'
-                        for face_id in known_persons[str(homeid[CC])]:
-                            for image_name in known_persons[str(homeid[CC])][face_id]:
-                                representation = known_persons[str(homeid[CC])][face_id][image_name] # 1D array (,150528)
-                                similarity = cosine(representation, captured_representation[0])
-                                # print(euclidean(known_persons[CC], captured_representation))
-                                if(similarity)<minratio: 
-                                    minratio=similarity
-                                    faceid=face_id
-                                    imagename=image_name
-                                    
-                        eucli = euclidean(known_persons[str(homeid[CC])][faceid][imagename], captured_representation[0])
+                        
+                        try:
+                            for face_id in known_persons[str(homeid[CC])]:
+                                for image_name in known_persons[str(homeid[CC])][face_id]:
+                                    representation = known_persons[str(homeid[CC])][face_id][image_name] # 1D array (,150528)
+                                    similarity = cosine(representation, captured_representation[0])
+                                    # print(euclidean(known_persons[CC], captured_representation))
+                                    if(similarity)<minratio: 
+                                        minratio=similarity
+                                        faceid=face_id
+                                        imagename=image_name
+                                        
+                            eucli = euclidean(known_persons[str(homeid[CC])][faceid][imagename], captured_representation[0])
+                        except:
+                            print(f"Nhà {homeid[CC]} chưa có ảnh nhận diện")
+                            
                         # Mở khóa nếu đúng người và đầy queue
+                        annotated_frame = frame[CC].copy()
                         if (minratio < 0.38 and eucli <90):
                             if result_queue(q_knownperson[CC], True):
                                 lastest_detected_face[CC] = current_time
@@ -377,6 +388,7 @@ def pose_cls_video():
                                 
                                 # Lưu ảnh người quen về máy
                                 unlock_img = frame[CC].copy()
+                                
                                 cv2.putText(unlock_img, "UNLOCK", (960,50), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0,255,0), thickness=3)
                                 cv2.putText(unlock_img, f"Match img: {image_name}", (20,135), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
                                 cv2.putText(unlock_img, f"Minratio:  {minratio:.5f}", (20,170), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
@@ -391,7 +403,7 @@ def pose_cls_video():
                                 
                                 # Gửi thông báo
                                 post_ntf_knownperson_detected(faceid, camera_name[CC], fcm_list[CC], formatted_time)
-                                save_ntf_img(frame[CC], 
+                                save_ntf_img(annotated_frame, 
                                             camera_id=get_camera_id(url[CC]), 
                                             title=title, 
                                             body=text,
@@ -405,9 +417,10 @@ def pose_cls_video():
                                 
                             # Lưu ảnh người lạ
                             stranger_img = frame[CC].copy()
-                            cv2.putText(stranger_img, f"Minratio:  {minratio:.5f}", (20,170), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
-                            cv2.putText(stranger_img, f"Eucli:     {eucli:.5f}", (20,205), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
+                            cv2.putText(stranger_img, f"Minratio:  {minratio:.3f}", (20,170), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
+                            cv2.putText(stranger_img, f"Eucli:     {eucli:.3f}", (20,205), cv2.FONT_HERSHEY_SIMPLEX, 1, (102, 255, 250), 2)
                             
+                            # Lưu hình vào folder
                             time_string = current_time.strftime(("%d-%m-%Y %Hh%Mm%Ss"))
                             cv2.imwrite(f"Unknown_Human/{time_string}.jpg", stranger_img)
                             cv2.imwrite(f"Unknow_Human_NoBox/{time_string}.jpg", base_img)
@@ -544,7 +557,7 @@ def pose_cls_video():
                                         if prob >= pose_thres and label=='climbing':
                                             if result_queue(q_climbing[CC], True):
                                                 text = 'Leo rào' + " ({:.2f}%)".format(prob)
-                                                post_alert(fcms=fcm_list[CC], title=title, body=text)
+                                                post_alert(fcms=fcm_list[CC], title=title, body=text + formatted_time_ntf)
                                                 save_ntf_img(annotated_frame, 
                                                             camera_id=get_camera_id(url[CC]), 
                                                             title=title, 
@@ -596,19 +609,22 @@ def pose_cls_video():
                                     else:
                                         result_queue(q_climbing, False)
             #-----------------------------------------------------------------------------------------------------------#
-            frame[CC] = annotated_frame
+            frame[CC] = annotated_frame.copy()
             
             # Hiện FPS
             cv2.putText(frame[CC], "fps: {:.2f}".format(fps), (20,50),cv2.FONT_HERSHEY_SIMPLEX, 1, (23, 155, 255), 2)
             
             # Vẽ vùng cảnh báo
-            if lockpicking_area[CC] is not None:
-                for point in lockpicking_area[CC]:
-                    frame[CC] = drawbox(frame[CC], lockpicking_area[CC][point])
-            if climbing_area[CC] is not None:
-                for point in climbing_area[CC]:
-                    frame[CC] = drawbox(frame[CC], climbing_area[CC][point])
-                
+            try:
+                if lockpicking_area[CC] is not None:
+                    for point in lockpicking_area[CC]:
+                        frame[CC] = drawbox(frame[CC], lockpicking_area[CC][point])
+                if climbing_area[CC] is not None:
+                    for point in climbing_area[CC]:
+                        frame[CC] = drawbox(frame[CC], climbing_area[CC][point])
+            except:
+                print('Cam không có vùng cảnh báo')
+                pass
             cv2.imshow(camera_name[CC], 
                         cv2.resize(frame[CC], (int((frame[CC].shape[1])*scale),int((frame[CC].shape[0])*scale))))
 

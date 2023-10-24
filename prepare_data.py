@@ -3,7 +3,8 @@ import numpy as np
 from PIL import Image
 from io import BytesIO
 from scipy.spatial.distance import cosine, euclidean
-
+from keras_vggface.utils import preprocess_input
+from facereg_model import loadVggFaceModel
 from scipy.spatial.distance import euclidean
 from PIL import Image
 import numpy as np
@@ -77,7 +78,7 @@ def load_hinhtrain(root_folder='hinhtrain'):
     """ Trả về dict có cấu trúc như thư mục "hinhtrain", chứa 3D array của các ảnh nhận diện
     """
     image_data = {}  # Dictionary để lưu trữ dữ liệu ảnh
-
+    vgg_model = loadVggFaceModel()
     # Duyệt qua các thư mục HomeID
     for homeid in os.listdir(root_folder):
         home_path = os.path.join(root_folder, homeid)
@@ -99,9 +100,20 @@ def load_hinhtrain(root_folder='hinhtrain'):
                         if os.path.isfile(image_path) and image_name.endswith(('.jpg', '.jpeg', '.png')):
                             # Sử dụng OpenCV để đọc hình ảnh và chuyển đổi thành mảng NumPy
                             image = cv2.imread(image_path)
+                            
+                            img_pixels = Image.fromarray(image)
+                            img_pixels = np.expand_dims(img_pixels, axis = 0)
+                            samples = np.asarray(img_pixels, 'float32')
+                            # prepare the face for the model, e.g. center pixels
+                                ####
+                            samples = preprocess_input(samples, version=2)
+                            samples_fn = np.asarray(img_pixels, 'float32')
+                            samples_fn = preprocess_input(samples_fn, version=2)
+                            representation = vgg_model.predict(samples_fn)
+                            
                             if image is not None:
                                 # Đưa về 1D array và chuẩn hóa các giá trị pixel về khoảng 0-1
-                                folder_images[image_name] = image.reshape(-1).astype(np.float32) / 255.0
+                                folder_images[image_name] = representation
 
                     # Thêm dictionary của thư mục vào dictionary tổng
                     folder_face_id[face_id] = folder_images
@@ -112,9 +124,9 @@ def load_hinhtrain(root_folder='hinhtrain'):
 
 
 #---------------------------------------------------------------------------------------------
-start_time = time.time()
-download_hinhtrain()
-image_data = load_hinhtrain()
+# start_time = time.time()
+# download_hinhtrain()
+# image_data = load_hinhtrain()
 
 # elapsed_time = time.time() - start_time
 # print("Thời gian chạy hàm: {:.2f} giây".format(elapsed_time))
