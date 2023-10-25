@@ -291,6 +291,7 @@ def pose_cls_video():
     known_persons = load_hinhtrain()
     cam_data = get_camera_data()
     cam_data = [cam_data[9]]
+    # cam_data = [cam_data[6], cam_data[9]]
     #------------------------------------ Các thông tin của Camera ------------------------------------
     url, lockpicking_area, climbing_area, fcm_list, camera_id, camera_name, homeid, lockid, related_camera_id, task = [], [], [], [], [], [], [], [], [], []
     # Bỏ qua các cam chưa nhập LockpickingArea & ClimbingArea và không có LockID
@@ -423,9 +424,12 @@ def pose_cls_video():
                     result_queue(q_climbing[CC], False)
                 # Nếu phát hiện người
                 else:
+                    flag_nohuman = True
+                    flag_inside_box_lockpicking = False
+                    flag_inside_box_climbing = False
                     for skeleton in range(len(keypoints_arrs)):
                         if float(results[0].boxes.data[skeleton][4]*100)>humanpose_conf:
-                            
+                            flag_nohuman = False
                             #------------------------------ Tìm vị trí khuôn mặt ------------------------------
                             current_skeleton = keypoints_arrs[skeleton]
                             highestVisible = np.argmax(current_skeleton[:5,2])
@@ -624,6 +628,7 @@ def pose_cls_video():
                                     
                                     # Nếu có thì kiểm tra 2 vị trí 2 tay với các vùng Mở khóa
                                     if (inside_the_box(left_hand,lockpicking_area[CC][point]) and inside_the_box(right_hand,lockpicking_area[CC][point])):
+                                        flag_inside_box_lockpicking = True
                                         input = keypoints_arrs[skeleton,5:,:]
                                         input[:,0] = input[:,0]/frame_width
                                         input[:,1] = input[:,1]/frame_width
@@ -709,6 +714,7 @@ def pose_cls_video():
                                     annotated_frame = drawbox(annotated_frame, climbing_area[CC][point])
                                     # Nếu có thì kiểm tra 2 vị trí 2 tay với các vùng Leo rào
                                     if (inside_the_box(left_hand,climbing_area[CC][point]) and inside_the_box(right_hand,climbing_area[CC][point])):
+                                        flag_inside_box_climbing = True
                                         input = keypoints_arrs[skeleton,5:,:]
                                         input[:,0] = input[:,0]/frame_width
                                         input[:,1] = input[:,1]/frame_width
@@ -781,9 +787,14 @@ def pose_cls_video():
                                                         notification_type='Pose',
                                                         formatted_time=formatted_time)
                                         
-                                    else:
-                                        result_queue(q_climbing[CC], False)
+                    if flag_nohuman:
+                        result_queue(q_lockpicking[CC], False)
+                        result_queue(q_climbing[CC], False)
                     
+                    if not flag_inside_box_lockpicking:
+                        result_queue(q_lockpicking[CC], False)
+                    if not flag_inside_box_climbing:
+                        result_queue(q_climbing[CC], False)
 
                 #-----------------------------------------------------------------------------------------------------------#
                 # frame[CC] = annotated_frame.copy()
