@@ -12,7 +12,7 @@ list_arr = []
 import cv2, os
 from ultralytics import YOLO
 model = YOLO('YOLOv8n-pose.pt')
-video_type = 'smthgelse'
+video_type = 'smthgelse2'
 # video_type = 'climbing'
 # video_type = 'lockpicking'
 folder_path = f'D:/Code/datatest/{video_type}'
@@ -32,7 +32,7 @@ for file_name in os.listdir(folder_path):
 
             # Tạo đối tượng VideoWriter để ghi video
             output_video = f'{video_type}/' + file_path.split('/')[-1].split('.')[0] + '.mp4'
-            out = cv2.VideoWriter(output_video, cv2.VideoWriter_fourcc(*'mp4v'), 10.0, (frame_width, frame_height))
+            out = cv2.VideoWriter(output_video, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
 
             while cap.isOpened():
                 ret, frame = cap.read()

@@ -17,7 +17,12 @@ url = [
         # 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true',           # Cam 5
         # 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true',           # Cam 6
         # 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true',           # Cam 7
-        # 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true',           # Cam 8
+        'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true',           # Cam 8
+        
+        # 'rtsp://admin:1qazxsw2@kbplawyer.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true',
+        # 'http://admin:1qazxsw2@kbplawyer.cameraddns.net:8005/',
+        # 'rtsp://admin:1qazxsw2@kbplawyer.cameraddns.net:5549/cam/realmonitor?channel=1&subtype=0&unicast=true',
+        # 'http://admin:1qazxsw2@kbplawyer.cameraddns.net:8009/',
         ]
 
 fresh, frame, cnt, first_frame, second_frame, None_frame, cam_name = [], [], [], [], [], [], []

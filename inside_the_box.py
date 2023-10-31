@@ -1,4 +1,4 @@
-import cv2
+import cv2, os
 import numpy as np
 
 def inside_the_box(point_test, points, img_w=1920, img_h=1080):
@@ -52,7 +52,9 @@ def draw_box_on_image(image_path, points, output_path=None, scale=1.0):
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-
+    
+    # cv2.imshow('Image with Rectangle', image)
+        
     # Lưu ảnh với hình chữ nhật đã vẽ (nếu cần)
     if output_path:
         cv2.imwrite(output_path, image)
@@ -60,20 +62,33 @@ def draw_box_on_image(image_path, points, output_path=None, scale=1.0):
     cv2.destroyAllWindows()
 
 # points = {
-#     'A': [400, 80],
-#     'B': [800, 180],
-#     'C': [700, 880],
-#     'D': [200, 780],
+#     'A': [922, 160],
+#     'B': [1000, 160],
+#     'C': [1000, 233],
+#     'D': [922, 233],
 # }
-
+# Cũ
 # points = {
 #     'A': [1230, 600],
 #     'B': [1320, 710],
 #     'C': [1230, 880],
 #     'D': [1145, 770],
 # }
+# {"L0": {"A": [630, 315], "B": [1390, 315], "C": [1390, 485], "D": [630, 485]}}
+# points = {
+#     'A': [630, 315],
+#     'B': [1390, 315],
+#     'C': [1390, 485],
+#     'D': [630, 485],
+# }
 
-# draw_box_on_image('test/Cam 8.jpg', points, scale=0.5)
+# directory = "test/hinh"
+# draw_box_on_image(os.path.join(directory, 'Cam trong.jpg'), points, scale=0.5)
+
+# Lặp qua tất cả các tệp trong thư mục
+# for filename in os.listdir(directory):
+#     draw_box_on_image(os.path.join(directory, filename), points, scale=0.5)  
+
 
 # point_test1 = np.array([500, 380])
 # point_test2 = np.array([700, 80])

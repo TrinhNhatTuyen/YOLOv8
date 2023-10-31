@@ -1,6 +1,6 @@
 import cv2
 import pandas as pd
-def detect_face(ori_img,detector):
+def detect_face(ori_img, detector, drawbox_on=None):
     base_img = ori_img.copy()
     original_size = base_img.shape
     target_size = (300, 300)
@@ -17,4 +17,25 @@ def detect_face(ori_img,detector):
     detections_df['bottom'] = (detections_df['bottom'] * 300).astype(int)
     detections_df['right'] = (detections_df['right'] * 300).astype(int)
     detections_df['top'] = (detections_df['top'] * 300).astype(int)
+    
+    left = None
+    top = None
+    right = None
+    bottom = None
+    # Vẽ hình chữ nhật các khuôn mặt
+    for _, row in detections_df.iterrows():
+        left = row['left']
+        top = row['top']
+        right = row['right']
+        bottom = row['bottom']
+        if drawbox_on is None:
+            cv2.rectangle(base_img, (int(left), int(top)), (int(right), int(bottom)), (0, 255, 0), 2)
+        else:
+            cv2.rectangle(drawbox_on, (int(left), int(top)), (int(right), int(bottom)), (0, 255, 0), 2)
+    
     return detections_df
+    
+    # if drawbox_on is None:
+    #     return top, left, right, bottom
+    # else:
+    #     return top, left, right, bottom

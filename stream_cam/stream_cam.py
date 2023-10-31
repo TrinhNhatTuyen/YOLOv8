@@ -6,10 +6,10 @@ url = 'rtsp://admin:Dat1qazxsw2@192.168.6.100:1554/h264_stream'
 # url = 'rtsp://admin:NuQuynhAnh@cam24423linhdong.smartddns.tv:1554/cam/realmonitor?channel=1&subtype=0&unicast=true'
 
 url = 'rtsp://admin:NuQuynhAnh@cam14423linhdong.smartddns.tv:1554/cam/realmonitor?channel=1&subtype=0&unicast=true' # Cam 1
-url = 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 2
+# url = 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 2
 # url = 'rtsp://admin:Admin123@mtkhp2420.cameraddns.net:554/cam/realmonitor?channel=1&subtype=0&unicast=true'         # Cam 3
 
-# url = 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 4
+url = 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5543/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 4
 # url = 'rtsp://admin:Vinaai!123@py1ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 5
 
 # url = 'rtsp://admin:Vinaai!123@py2ai.cameraddns.net:5541/cam/realmonitor?channel=1&subtype=0&unicast=true'          # Cam 6
@@ -18,6 +18,11 @@ url = 'rtsp://admin:Admin123@mtkhp2408.cameraddns.net:554/cam/realmonitor?channe
 # url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80/cam/realmonitor?channel=1&subtype=0&unicast=true'           # Cam 8
 # url = 'https://admin:Vinaai!123@py2ai.cameraddns.net:80'
 
+# url = 'rtsp://admin:1qazxsw2@kbplawyer.cameraddns.net:5545/cam/realmonitor?channel=1&subtype=0&unicast=true'
+# url = 'http://admin:1qazxsw2@kbplawyer.cameraddns.net:8005'
+# url = 'rtsp://admin:1qazxsw2@kbplawyer.cameraddns.net:5549/cam/realmonitor?channel=1&subtype=0&unicast=true'
+url = 'http://admin:1qazxsw2@kbplawyer.cameraddns.net:8010'
+
 fresh = object()
 fresh = FreshestFrame(cv2.VideoCapture(url))
 frame = object()
@@ -25,13 +30,14 @@ cnt = 0
 
 # Tạo đối tượng VideoCapture với URL stream
 cap = cv2.VideoCapture(url)
-scale_percent = 36
+scale_percent = 50
 # Kiểm soát việc ghi và lưu video
 record = False
+stream = True
 out = None
 i=1
 timer =time.time()
-while True:
+while stream:
     try:
         
         cnt, frame = fresh.read(seqnumber=cnt+1)
@@ -63,15 +69,16 @@ while True:
             new_video_name = f'D:/Code/datatest/cam/{max(list_name)+1}.mp4'
             
             # Tạo đối tượng VideoWriter để ghi video
-            out = cv2.VideoWriter(new_video_name, cv2.VideoWriter_fourcc(*'mp4v'), 15.0, (base_img.shape[1], base_img.shape[0]))
+            out = cv2.VideoWriter(new_video_name, cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (base_img.shape[1], base_img.shape[0]))
             print('Started recording...')
         
         # Ấn phím 'q' để dừng và lưu video
         if key == ord('t') and record:
+            # stream = False
             record = False
+            print(f'Stopped recording. Video saved as {new_video_name}')
             out.release()
             i+=1
-            print('Stopped recording. Video saved as recorded_video.mp4')
         
         # Ghi và lưu video nếu đang trong quá trình ghi
         if record:
@@ -82,7 +89,7 @@ while True:
         continue
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        break
         
 fresh.release()
 cv2.destroyAllWindows()
