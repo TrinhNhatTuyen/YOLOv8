@@ -2,10 +2,10 @@ import cv2, requests, base64, json, datetime, time
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 from queue import Queue
-from tensorflow.keras.models import load_model
+from keras.models import load_model
 from overstepframe import FreshestFrame
 from inside_the_box import inside_the_box
-# from firebase_admin import credentials, messaging
+from firebase_admin import credentials, messaging
 #------------------------------------ LOAD MODEL ------------------------------------
 from ultralytics import YOLO
 model = YOLO('YOLOv8n-pose.pt')
@@ -86,35 +86,16 @@ def get_fcm_to_send(camera_id):
     return json.loads(response.text)
 
 def post_alert(fcms, title, body, data=None):
-    for fcm in fcms:
-        # Đường dẫn API FCM
-        url = 'https://fcm.googleapis.com/fcm/send'
-        
-        # Đặt thông báo đẩy
-        payload = {
-            'to': fcm,
-            'notification': {
-                'title': title,
-                'body': body,
-                'priority': 'high',
-            },
-        }
-        
-        # Thêm dữ liệu tùy chỉnh (nếu có)
-        if data:
-            payload['data'] = data
-        
-        # Đặt tiêu đề của thông báo gửi tới FCM
-        headers = {
-            'Authorization': 'Key=AAAAUM0_kA0:APA91bFq6fvEmRIHZrF4VYTpTcsZHDo_bXvfm1jearG3A8BuNh_pEHtQtYhfGkbDkzsPm_lEwSh-t1LKB50c89wTaEs6N_RAqw7-JhNoUgmA_S5XyNA63E9MICw19QGwCSshw_o_sefG',
-            'Content-Type': 'application/json'
-        }
-        
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            print('Thông báo đẩy đã được gửi thành công.')
-        else:
-            print('Gửi thông báo đẩy không thành công. Mã lỗi:', response.status_code)
+    message = messaging.MulticastMessage( 
+                            notification = messaging.Notification( title=title, body=body), 
+                            # android=messaging.AndroidConfig( priority='high', notification=messaging.AndroidNotification( sound=sound_path, image=image_url ), ), 
+                            # apns=messaging.APNSConfig( payload=messaging.APNSPayload( aps=messaging.Aps( sound=sound_path ), ), ), 
+                            tokens=fcms
+                            )
+    # Gửi thông báo đến thiết bị cụ thể
+    response = messaging.send_multicast(message)
+    print(f"Failure Count: {response.failure_count}")
+    return response.failure_count
 
 def get_camera_data():
     
@@ -266,7 +247,7 @@ def pose_cls_video():
             # Nếu phát hiện người
             else:
                 # Lặp qua từng khung xương:
-                for skeleton in range(len(keypoints_arrs)):
+                for skeleton in range(keypoints_arrs):
                     # Nếu là con người (so sánh với humanpose_conf)
                     if float(results[0].boxes.data[skeleton][4]*100)>humanpose_conf:
                         # Kiểm tra vị trí cả 2 tay có nằm trong vùng cần kiểm tra không
@@ -346,10 +327,13 @@ def pose_cls_video():
                                     draw.text(text_position, text, font=font, fill=font_color)
                                     # Chuyển đổi ảnh PIL thành ảnh Numpy
                                     annotated_frame = np.array(pil_image)
+                                
+                                else:
+                                    result_queue(q_lockpicking, False)
                                     
                         
                         #===========================================================================================================# 
-                        if lockpicking_area[CC] is not None:
+                        if climbing_area[CC] is not None:
                             for point in climbing_area[CC]:
                                 # Kiểm tra nếu k có thông tin vùng Mở khóa, break
                                 if climbing_area[CC][point] is None:
@@ -421,6 +405,9 @@ def pose_cls_video():
                                     draw.text(text_position, text, font=font, fill=font_color)
                                     # Chuyển đổi ảnh PIL thành ảnh Numpy
                                     annotated_frame = np.array(pil_image)
+                                
+                                else:
+                                    result_queue(q_climbing, False)
             #===========================================================================================================#
             frame[CC] = annotated_frame
             
